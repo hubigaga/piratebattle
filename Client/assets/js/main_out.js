@@ -160,16 +160,14 @@
             _shipMaxDist   = 300 + windFactor * windStrength * 2700; // 300..3000
 
             // ── Throttle (size-scaled acceleration, no reverse) ──
-            var accel = 0.003 * sizeInv; // slow spool-up; bigger = even slower
-            var coast = 0.002;
+            var accel = 0.0008 * sizeInv; // ~20s to full speed at start size
+            var coast = 0.0002;            // ships barely slow down on their own
             if (pirateKeys[87] || pirateKeys[38]) {
-                // W / ↑  — accelerate forward
                 shipSpeed = Math.min(1.0, shipSpeed + accel);
             } else if (pirateKeys[83] || pirateKeys[40]) {
-                // S / ↓  — brake only (no reverse; real sail ships don't go backwards)
-                shipSpeed = Math.max(0, shipSpeed - accel * 2);
+                // Hard braking — still takes several seconds from full speed
+                shipSpeed = Math.max(0, shipSpeed - accel * 4);
             } else {
-                // No key — coast to a stop
                 if (shipSpeed > coast) shipSpeed -= coast;
                 else                   shipSpeed  = 0;
             }
