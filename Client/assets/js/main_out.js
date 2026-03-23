@@ -63,10 +63,17 @@
             isTyping = true;
         };
 
-        // ── Pirate Ship Controls ──────────────────────────────
-        // shipHeading: 0=north/up, increases clockwise (radians)
-        // shipHeading is declared in the outer IIFE scope (initialized to 0 there)
-        var pirateKeys = {}; // held keys for steering
+        // ═══════════════════════════════════════════════════════
+        //  PIRATE SHIP PHYSICS  (clean rewrite)
+        //
+        //  Convention: shipHeading = 0 → bow points UP (north, -Y)
+        //              increases clockwise (east = π/2)
+        //  Virtual mouse placed at:
+        //    rawMouseX = canvasWidth/2  + sin(heading) * dist
+        //    rawMouseY = canvasHeight/2 - cos(heading) * dist
+        //  → server moves cell toward that world point.
+        // ═══════════════════════════════════════════════════════
+        var pirateKeys = {};
 
         wHandle.onkeydown = function(event) {
             if (isTyping) {
@@ -80,112 +87,97 @@
                 return;
             }
             pirateKeys[event.keyCode] = true;
-
             switch (event.keyCode) {
-                case 13: // enter → open chat
-                    if (!hasOverlay) {
-                        document.getElementById("chat_textbox").focus();
-                        isTyping = true;
-                    }
+                case 13:
+                    if (!hasOverlay) { document.getElementById("chat_textbox").focus(); isTyping = true; }
                     break;
-                case 32: // Space → fire both cannons
-                    event.preventDefault();
-                    if (playerCells.length > 0) {
-                        firePirateCannon('both');
-                    }
-                    break;
-                case 90: // Z → port (left) cannon
-                    if (playerCells.length > 0) firePirateCannon('port');
-                    break;
-                case 88: // X → starboard (right) cannon
-                    if (playerCells.length > 0) firePirateCannon('starboard');
-                    break;
-                case 27: // Esc
-                    showOverlays(true);
-                    break;
-                // Prevent default scroll for arrow keys
-                case 37: case 38: case 39: case 40:
-                    event.preventDefault();
-                    break;
+                case 32: event.preventDefault(); if (playerCells.length > 0) firePirateCannon('both');      break;
+                case 90:                          if (playerCells.length > 0) firePirateCannon('port');      break;
+                case 88:                          if (playerCells.length > 0) firePirateCannon('starboard'); break;
+                case 27: showOverlays(true); break;
+                case 37: case 38: case 39: case 40: event.preventDefault(); break;
             }
         };
-        wHandle.onkeyup = function(event) {
-            pirateKeys[event.keyCode] = false;
-        };
-        wHandle.onblur = function() {
-            pirateKeys = {};
-        };
+        wHandle.onkeyup  = function(e) { pirateKeys[e.keyCode] = false; };
+        wHandle.onblur   = function()  { pirateKeys = {}; };
 
-        // Fire cannon by temporarily pointing mouse to port or starboard, then eject
+        // ── Cannon fire ───────────────────────────────────────
+        // Briefly redirect virtual mouse 90° to port or starboard,
+        // send fire packet, then immediately restore movement mouse.
         function firePirateCannon(side) {
-            pirateFireAnim = { side: side, expires: Date.now() + 300 };
-            var OFFSET = 3000; // distance for virtual mouse
-            var origX = rawMouseX, origY = rawMouseY;
+            pirateFireAnim = { side: side, expires: Date.now() + 350 };
+            var FAR = 8000; // large enough to be well outside ship even after zoom
 
-            function fireDir(angleOffset) {
-                var a = shipHeading + angleOffset;
-                rawMouseX = canvasWidth / 2 + Math.sin(a) * OFFSET;
-                rawMouseY = canvasHeight / 2 - Math.cos(a) * OFFSET;
+            function fireOneSide(a) {
+                rawMouseX = canvasWidth  / 2 + Math.sin(a) * FAR;
+                rawMouseY = canvasHeight / 2 - Math.cos(a) * FAR;
                 mouseCoordinateChange();
                 sendMouseMove();
-                sendUint8(21); // eject mass = fire cannon
+                sendUint8(21); // eject = fire cannon
             }
 
-            if (side === 'port' || side === 'both') fireDir(-Math.PI / 2);
-            if (side === 'starboard' || side === 'both') fireDir(Math.PI / 2);
+            if (side === 'port'      || side === 'both') fireOneSide(shipHeading - Math.PI / 2);
+            if (side === 'starboard' || side === 'both') fireOneSide(shipHeading + Math.PI / 2);
 
-            // Restore virtual mouse to heading direction
-            rawMouseX = origX;
-            rawMouseY = origY;
+            // Restore movement mouse immediately so ship doesn't drift sideways
+            setMovementMouse();
+            sendMouseMove();
+        }
+
+        // ── Movement mouse helper ─────────────────────────────
+        function setMovementMouse() {
+            var dist = shipSpeed * (shipSpeed >= 0 ? _shipMaxDist : 600);
+            rawMouseX = canvasWidth  / 2 + Math.sin(shipHeading) * dist;
+            rawMouseY = canvasHeight / 2 - Math.cos(shipHeading) * dist;
             mouseCoordinateChange();
         }
 
-        // Slowly shift wind direction
-        setInterval(function() {
-            windAngle += (Math.random() - 0.5) * 0.04;
-            windStrength = Math.max(0.4, Math.min(1.0, windStrength + (Math.random() - 0.5) * 0.02));
-        }, 2000);
+        var _shipMaxDist = 1000; // updated each physics tick based on wind
 
-        // Ship steering update loop (runs every 16ms)
+        // ── Wind drift (slow) ─────────────────────────────────
+        setInterval(function() {
+            windAngle   += (Math.random() - 0.5) * 0.04;
+            windStrength = Math.max(0.4, Math.min(1.0, windStrength + (Math.random() - 0.5) * 0.02));
+        }, 3000);
+
+        // ── Main physics tick (16 ms ≈ 60 fps) ───────────────
         setInterval(function() {
             if (isTyping || hasOverlay) return;
 
-            // Rotate heading with A/D or Left/Right arrow
-            // Turn rate scales with speed — a stopped ship can't steer
-            var maxTurn = 0.038;
-            var turnSpeed = maxTurn * Math.min(1.0, Math.abs(shipSpeed) * 3.5);
-            if (pirateKeys[65] || pirateKeys[37]) shipHeading -= turnSpeed;
-            if (pirateKeys[68] || pirateKeys[39]) shipHeading += turnSpeed;
+            // Ship size — bigger ships accelerate and turn more slowly
+            var shipSize = (playerCells.length > 0) ? playerCells[0].size : 80;
+            var sizeInv  = Math.min(1.0, 80 / shipSize); // 1.0 at start size, <1 when larger
 
-            // Wind factor: dot product of ship heading vs wind direction (0 = against, 1 = with)
-            var windDot = Math.cos(shipHeading - windAngle); // -1..1
-            var windFactor = (windDot + 1) / 2;             // 0..1
-            var maxForwardDist = 350 + windFactor * windStrength * 2650; // 350..3000
+            // ── Turn (requires speed; scales down with size) ──
+            var maxTurn  = 0.040 * sizeInv;
+            var turnRate = maxTurn * Math.min(1.0, Math.abs(shipSpeed) * 4.0);
+            if (pirateKeys[65] || pirateKeys[37]) shipHeading -= turnRate; // A / ←
+            if (pirateKeys[68] || pirateKeys[39]) shipHeading += turnRate; // D / →
 
-            // Gradual acceleration
-            var accel = 0.010;
-            var decel = 0.006;
+            // ── Wind effect on max speed ──────────────────────
+            var windDot    = Math.cos(shipHeading - windAngle); // -1=against, +1=with
+            var windFactor = (windDot + 1) / 2;                 // 0..1
+            _shipMaxDist   = 300 + windFactor * windStrength * 2700; // 300..3000
+
+            // ── Throttle (size-scaled acceleration) ──────────
+            var accel = 0.006 * sizeInv; // bigger ship = slower spool-up
+            var coast = 0.003;
             if (pirateKeys[87] || pirateKeys[38]) {
-                shipSpeed = Math.min(shipSpeed + accel, 1.0);
+                // W / ↑  — accelerate forward up to wind-limited max
+                shipSpeed = Math.min(1.0, shipSpeed + accel);
             } else if (pirateKeys[83] || pirateKeys[40]) {
-                shipSpeed = Math.max(shipSpeed - accel * 1.4, -0.35);
+                // S / ↓  — brake / reverse (always available, wind-independent)
+                shipSpeed = Math.max(-0.25, shipSpeed - accel * 1.5);
             } else {
-                if (shipSpeed > 0) shipSpeed = Math.max(0, shipSpeed - decel);
-                else if (shipSpeed < 0) shipSpeed = Math.min(0, shipSpeed + decel);
+                // No key — coast to a stop
+                if      (shipSpeed >  coast) shipSpeed -= coast;
+                else if (shipSpeed < -coast) shipSpeed += coast;
+                else                         shipSpeed  = 0;
             }
 
-            var dist;
-            if (shipSpeed >= 0) {
-                dist = shipSpeed * maxForwardDist;
-            } else {
-                dist = shipSpeed * 700; // reverse: slower, wind-independent
-            }
+            // ── Push virtual mouse in heading direction ────────
+            setMovementMouse();
 
-            if (Math.abs(dist) < 8) return; // nearly stopped
-
-            rawMouseX = canvasWidth / 2 + Math.sin(shipHeading) * dist;
-            rawMouseY = canvasHeight / 2 - Math.cos(shipHeading) * dist;
-            mouseCoordinateChange();
         }, 16);
 
         wHandle.onresize = canvasResize;

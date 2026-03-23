@@ -106,8 +106,8 @@ function GameServer() {
         
         virusMinSize: 100,          // Minimum virus size (vanilla 100)
         virusMaxSize: 140,          // Maximum virus size (vanilla 140)
-        virusMinAmount: 50,         // Minimum number of viruses on the map.
-        virusMaxAmount: 100,        // Maximum number of viruses on the map. If this number is reached, then ejected cells will pass through viruses.
+        virusMinAmount: 0,          // No viruses — ships don't split on rocks
+        virusMaxAmount: 0,          // No viruses
         
         ejectSize: 22,              // Cannonball size (smaller than vanilla for visual clarity)
         ejectSizeLoss: 25,          // Mass cost to fire a cannon
