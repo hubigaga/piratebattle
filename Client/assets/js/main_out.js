@@ -151,7 +151,9 @@
             if (isTyping || hasOverlay) return;
 
             // Rotate heading with A/D or Left/Right arrow
-            var turnSpeed = 0.038;
+            // Turn rate scales with speed — a stopped ship can't steer
+            var maxTurn = 0.038;
+            var turnSpeed = maxTurn * Math.min(1.0, Math.abs(shipSpeed) * 3.5);
             if (pirateKeys[65] || pirateKeys[37]) shipHeading -= turnSpeed;
             if (pirateKeys[68] || pirateKeys[39]) shipHeading += turnSpeed;
 
