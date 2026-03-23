@@ -159,20 +159,19 @@
             var windFactor = (windDot + 1) / 2;                 // 0..1
             _shipMaxDist   = 300 + windFactor * windStrength * 2700; // 300..3000
 
-            // ── Throttle (size-scaled acceleration) ──────────
-            var accel = 0.006 * sizeInv; // bigger ship = slower spool-up
-            var coast = 0.003;
+            // ── Throttle (size-scaled acceleration, no reverse) ──
+            var accel = 0.003 * sizeInv; // slow spool-up; bigger = even slower
+            var coast = 0.002;
             if (pirateKeys[87] || pirateKeys[38]) {
-                // W / ↑  — accelerate forward up to wind-limited max
+                // W / ↑  — accelerate forward
                 shipSpeed = Math.min(1.0, shipSpeed + accel);
             } else if (pirateKeys[83] || pirateKeys[40]) {
-                // S / ↓  — brake / reverse (always available, wind-independent)
-                shipSpeed = Math.max(-0.25, shipSpeed - accel * 1.5);
+                // S / ↓  — brake only (no reverse; real sail ships don't go backwards)
+                shipSpeed = Math.max(0, shipSpeed - accel * 2);
             } else {
                 // No key — coast to a stop
-                if      (shipSpeed >  coast) shipSpeed -= coast;
-                else if (shipSpeed < -coast) shipSpeed += coast;
-                else                         shipSpeed  = 0;
+                if (shipSpeed > coast) shipSpeed -= coast;
+                else                   shipSpeed  = 0;
             }
 
             // ── Push virtual mouse in heading direction ────────
@@ -720,8 +719,8 @@
     }
 
     function redrawGameScene() {
-        drawGameScene();
-        wHandle.requestAnimationFrame(redrawGameScene)
+        try { drawGameScene(); } catch(e) { console.error('drawGameScene error:', e); }
+        wHandle.requestAnimationFrame(redrawGameScene);
     }
 
     function canvasResize() {
