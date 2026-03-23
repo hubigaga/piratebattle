@@ -106,7 +106,7 @@
         // send fire packet, then immediately restore movement mouse.
         function firePirateCannon(side) {
             pirateFireAnim = { side: side, expires: Date.now() + 350 };
-            var FAR = 8000; // large enough to be well outside ship even after zoom
+            var FAR = 200 * viewZoom; // well outside 32-unit threshold in world space
 
             function fireOneSide(a) {
                 rawMouseX = canvasWidth  / 2 + Math.sin(a) * FAR;
@@ -125,14 +125,17 @@
         }
 
         // ── Movement mouse helper ─────────────────────────────
+        // Place mouse exactly shipSpeed×32 world-units ahead of the ship.
+        // 32 is agar's own speed-cap threshold: below it the cell moves
+        // proportionally, above it full speed. Staying within that range
+        // gives smooth linear acceleration with no leap.
         function setMovementMouse() {
-            var dist = shipSpeed * (shipSpeed >= 0 ? _shipMaxDist : 600);
-            rawMouseX = canvasWidth  / 2 + Math.sin(shipHeading) * dist;
-            rawMouseY = canvasHeight / 2 - Math.cos(shipHeading) * dist;
+            var worldUnits = shipSpeed * 31; // 0..31 world units (just under threshold)
+            var canvasDist = worldUnits * viewZoom;
+            rawMouseX = canvasWidth  / 2 + Math.sin(shipHeading) * canvasDist;
+            rawMouseY = canvasHeight / 2 - Math.cos(shipHeading) * canvasDist;
             mouseCoordinateChange();
         }
-
-        var _shipMaxDist = 1000; // updated each physics tick based on wind
 
         // ── Wind drift (slow) ─────────────────────────────────
         setInterval(function() {
@@ -144,35 +147,37 @@
         setInterval(function() {
             if (isTyping || hasOverlay) return;
 
-            // Ship size — bigger ships accelerate and turn more slowly
+            // Bigger ships accelerate and turn more slowly
             var shipSize = (playerCells.length > 0) ? playerCells[0].size : 80;
-            var sizeInv  = Math.min(1.0, 80 / shipSize); // 1.0 at start size, <1 when larger
+            var sizeInv  = Math.min(1.0, 80 / shipSize);
 
-            // ── Turn (requires speed; scales down with size) ──
+            // ── Wind limits top speed ─────────────────────────
+            // Against wind: max 30% of full; with wind: up to 100%
+            var windDot    = Math.cos(shipHeading - windAngle);
+            var windFactor = (windDot + 1) / 2;
+            var windMax    = 0.3 + windFactor * windStrength * 0.7; // 0.3..1.0
+
+            // ── Turn (needs speed; scales with size) ──────────
             var maxTurn  = 0.040 * sizeInv;
-            var turnRate = maxTurn * Math.min(1.0, Math.abs(shipSpeed) * 4.0);
-            if (pirateKeys[65] || pirateKeys[37]) shipHeading -= turnRate; // A / ←
-            if (pirateKeys[68] || pirateKeys[39]) shipHeading += turnRate; // D / →
+            var turnRate = maxTurn * Math.min(1.0, shipSpeed * 4.0);
+            if (pirateKeys[65] || pirateKeys[37]) shipHeading -= turnRate;
+            if (pirateKeys[68] || pirateKeys[39]) shipHeading += turnRate;
 
-            // ── Wind effect on max speed ──────────────────────
-            var windDot    = Math.cos(shipHeading - windAngle); // -1=against, +1=with
-            var windFactor = (windDot + 1) / 2;                 // 0..1
-            _shipMaxDist   = 300 + windFactor * windStrength * 2700; // 300..3000
-
-            // ── Throttle (size-scaled acceleration, no reverse) ──
-            var accel = 0.0008 * sizeInv; // ~20s to full speed at start size
-            var coast = 0.0002;            // ships barely slow down on their own
+            // ── Throttle ──────────────────────────────────────
+            var accel = 0.0008 * sizeInv;
+            var coast = 0.0002;
             if (pirateKeys[87] || pirateKeys[38]) {
-                shipSpeed = Math.min(1.0, shipSpeed + accel);
+                shipSpeed = Math.min(windMax, shipSpeed + accel);
             } else if (pirateKeys[83] || pirateKeys[40]) {
-                // Hard braking — still takes several seconds from full speed
                 shipSpeed = Math.max(0, shipSpeed - accel * 4);
             } else {
                 if (shipSpeed > coast) shipSpeed -= coast;
                 else                   shipSpeed  = 0;
             }
+            // Wind can push over current max if you were going faster
+            shipSpeed = Math.min(shipSpeed, windMax);
 
-            // ── Push virtual mouse in heading direction ────────
+            // ── Push virtual mouse ────────────────────────────
             setMovementMouse();
 
         }, 16);
