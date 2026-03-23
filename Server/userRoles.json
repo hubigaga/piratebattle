@@ -1,0 +1,20 @@
+[
+    { 
+        "ip":"*", 
+        "password":"nimda",
+        "role":"ADMIN",
+        "name":"Local Administrator" 
+    },
+    { 
+        "ip":"*", 
+        "password":"redom",
+        "role":"MODER",
+        "name":"Local Moderator" 
+    },
+    { 
+        "ip":"*", 
+        "password":"resu",
+        "role":"USER",
+        "name":"Local User" 
+    }
+]
