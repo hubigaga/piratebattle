@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pirata</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1b2a; color: #fff; font-family: monospace; overflow: hidden; }
+    canvas { display: block; margin: 0 auto; }
+
+    #splash, #death-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      position: fixed;
+      inset: 0;
+      background: rgba(13, 27, 42, 0.96);
+    }
+    #death-screen { display: none; }
+
+    h1 { font-size: 2.8rem; color: #f39c12; letter-spacing: 0.12em; }
+    h2 { font-size: 1.6rem; color: #e74c3c; }
+
+    input[type=text], select {
+      padding: 9px 16px;
+      font-size: 1rem;
+      border-radius: 4px;
+      border: 1px solid #3d5a70;
+      background: #1c2e40;
+      color: #fff;
+      min-width: 240px;
+      outline: none;
+    }
+    input[type=text]:focus, select:focus { border-color: #f39c12; }
+
+    button {
+      padding: 11px 32px;
+      font-size: 1rem;
+      border-radius: 4px;
+      border: none;
+      background: #f39c12;
+      color: #000;
+      cursor: pointer;
+      font-weight: bold;
+      letter-spacing: 0.06em;
+    }
+    button:hover { background: #e67e22; }
+
+    .hint {
+      opacity: 0.5;
+      font-size: 0.78rem;
+      text-align: center;
+      line-height: 1.8;
+    }
+    .score { font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+
+<div id="splash">
+  <h1>⚓ PIRATA</h1>
+  <input id="username" type="text" placeholder="Dein Kapitän-Name" maxlength="16" />
+  <select id="ship-select">
+    <option value="sloop">Schaluppe — schnell · 4 Kanonen</option>
+    <option value="brigantine">Brigantine — mittel · 8 Kanonen</option>
+    <option value="galleon">Galleone — schwer · 16 Kanonen</option>
+    <option value="manOWar">Linienschiff — massiv · 24 Kanonen</option>
+  </select>
+  <button id="join-btn">Leinen los!</button>
+  <p class="hint">
+    ↑ Beschleunigen &nbsp;·&nbsp; ↓ Bremsen &nbsp;·&nbsp; ← → Drehen (nur mit Fahrt)<br>
+    A = Backbord-Breitseite &nbsp;·&nbsp; D = Steuerbord-Breitseite<br>
+    Leertaste = Explosionsfass legen<br>
+    Versenkte Schiffe geben ihre Kanonen ab
+  </p>
+</div>
+
+<div id="death-screen">
+  <h2>Versenkt!</h2>
+  <p class="score">Kills: <strong id="death-kills">0</strong></p>
+  <select id="respawn-ship">
+    <option value="sloop">Schaluppe</option>
+    <option value="brigantine">Brigantine</option>
+    <option value="galleon">Galleone</option>
+    <option value="manOWar">Linienschiff</option>
+  </select>
+  <button id="respawn-btn">Nochmal!</button>
+</div>
+
+<canvas id="game" style="display:none"></canvas>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
