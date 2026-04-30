@@ -7,11 +7,11 @@ export class Net {
     this.shipId     = null;
   }
 
-  connect(name, shipType) {
+  connect(name) {
     const proto  = location.protocol === 'https:' ? 'wss' : 'ws';
     this._ws     = new WebSocket(`${proto}://${location.host}`);
     this._ws.onopen    = () => {
-      this._ws.send(JSON.stringify({ t: 'join', sessionId: this.sessionId, name, shipType }));
+      this._ws.send(JSON.stringify({ t: 'join', sessionId: this.sessionId, name }));
     };
     this._ws.onmessage = e => {
       const msg = JSON.parse(e.data);
@@ -30,8 +30,33 @@ export class Net {
       this._ws.send(JSON.stringify({ t: 'input', ...input }));
   }
 
-  respawn(name, shipType) {
+  sendUpgrade(kind) {
     if (this._ws && this._ws.readyState === 1)
-      this._ws.send(JSON.stringify({ t: 'respawn', name, shipType }));
+      this._ws.send(JSON.stringify({ t: 'upgrade', kind }));
+  }
+
+  sendBuyWeapon(kind) {
+    if (this._ws && this._ws.readyState === 1)
+      this._ws.send(JSON.stringify({ t: 'buyWeapon', kind }));
+  }
+
+  sendBuyMines() {
+    if (this._ws && this._ws.readyState === 1)
+      this._ws.send(JSON.stringify({ t: 'buyMines' }));
+  }
+
+  sendFlag(dataUrl) {
+    if (this._ws && this._ws.readyState === 1)
+      this._ws.send(JSON.stringify({ t: 'flag', data: dataUrl }));
+  }
+
+  sendArrr(dataUrl) {
+    if (this._ws && this._ws.readyState === 1)
+      this._ws.send(JSON.stringify({ t: 'arrr', data: dataUrl }));
+  }
+
+  respawn(name) {
+    if (this._ws && this._ws.readyState === 1)
+      this._ws.send(JSON.stringify({ t: 'respawn', name }));
   }
 }

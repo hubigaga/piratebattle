@@ -4,94 +4,381 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pirata</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pirata+One&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0d1b2a; color: #fff; font-family: monospace; overflow: hidden; }
-    canvas { display: block; margin: 0 auto; }
 
-    #splash, #death-screen {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #100810;
+      color: #ffeedd;
+      font-family: 'Pirata One', cursive;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Scanline overlay */
+    body::after {
+      content: '';
       position: fixed;
       inset: 0;
-      background: rgba(13, 27, 42, 0.96);
+      background: repeating-linear-gradient(
+        0deg,
+        transparent, transparent 2px,
+        rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
     }
-    #death-screen { display: none; }
 
-    h1 { font-size: 2.8rem; color: #f39c12; letter-spacing: 0.12em; }
-    h2 { font-size: 1.6rem; color: #e74c3c; }
-
-    input[type=text], select {
-      padding: 9px 16px;
-      font-size: 1rem;
-      border-radius: 4px;
-      border: 1px solid #3d5a70;
-      background: #1c2e40;
-      color: #fff;
-      min-width: 240px;
-      outline: none;
+    /* ── Atmospheric background behind card ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, #cc00ff18 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 90%, #ff770018 0%, transparent 60%);
     }
-    input[type=text]:focus, select:focus { border-color: #f39c12; }
+
+    /* ── Intro screen ── */
+    #intro {
+      position: fixed; inset: 0; z-index: 200;
+      background: #000;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 1.2s ease;
+    }
+    #intro.fade-out { opacity: 0; pointer-events: none; }
+    #intro-bg {
+      position: absolute;
+      width: 58vmin; height: 58vmin;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: url('sprites/title.png') center/cover no-repeat;
+      border-radius: 8px;
+      filter: contrast(1.6) brightness(0.75);
+    }
+    #intro-bg::after {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: 8px;
+      background: radial-gradient(ellipse at center,
+        rgba(0,0,0,0.0) 25%,
+        rgba(0,0,0,0.6) 60%,
+        rgba(0,0,0,0.92) 80%,
+        rgba(0,0,0,1) 100%);
+    }
+    #intro-canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; mix-blend-mode: screen;
+    }
+
+    /* ── Login / death screens ───────────────────────────────────── */
+    #splash, #death-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+    }
+    #splash.visible { opacity: 1; pointer-events: all; }
+    #death-screen   { display: flex; opacity: 0; pointer-events: none; }
+    #death-screen.visible { opacity: 1; pointer-events: all; }
+
+    /* Compact card */
+    .card {
+      position: relative;
+      width: 320px;
+      padding: 36px 32px;
+      border: 1px solid #ff770066;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #1e0d1a 0%, #130a12 100%);
+      box-shadow: 0 0 60px #ff770022, 0 0 120px #cc00ff11;
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    /* Decorative top accent line */
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 10%; right: 10%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #ff7700, #cc00ff, transparent);
+      box-shadow: 0 0 12px #ff7700;
+      border-radius: 2px;
+    }
+
+    h1 {
+      font-size: 2.2rem; letter-spacing: 0.3em;
+      color: #ff7700;
+      text-shadow: 0 0 20px #ff7700, 0 0 40px #ff770088;
+      animation: titlePulse 3s ease-in-out infinite;
+      margin: 0;
+    }
+    h2 {
+      font-size: 1.6rem; letter-spacing: 0.2em;
+      color: #ff0088;
+      text-shadow: 0 0 16px #ff0088, 0 0 32px #ff008888;
+      margin: 0;
+    }
+    @keyframes titlePulse {
+      0%, 100% { text-shadow: 0 0 20px #ff7700, 0 0 40px #ff770088; }
+      50%       { text-shadow: 0 0 30px #ff7700, 0 0 60px #ff7700cc; }
+    }
+
+    input[type=text] {
+      padding: 10px 18px;
+      font-size: 1rem; font-family: inherit; letter-spacing: 0.1em;
+      border-radius: 6px; border: 1px solid #451830;
+      background: #1a0d18; color: #ffeedd;
+      min-width: 260px; outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      position: relative; z-index: 1;
+    }
+    input[type=text]:focus {
+      border-color: #ff7700;
+      box-shadow: 0 0 14px #ff770055;
+    }
 
     button {
-      padding: 11px 32px;
-      font-size: 1rem;
-      border-radius: 4px;
-      border: none;
-      background: #f39c12;
-      color: #000;
-      cursor: pointer;
-      font-weight: bold;
-      letter-spacing: 0.06em;
+      padding: 12px 36px;
+      font-size: 1rem; font-family: inherit; letter-spacing: 0.2em;
+      border-radius: 6px; border: 1px solid #ff7700;
+      background: #ff770018; color: #ff7700; cursor: pointer;
+      text-shadow: 0 0 12px #ff7700, 0 0 24px #ff770088;
+      box-shadow: 0 0 20px #ff770055, 0 0 40px #ff770022;
+      transition: all 0.15s;
+      position: relative; z-index: 1;
     }
-    button:hover { background: #e67e22; }
+    button:hover { background: #ff770030; box-shadow: 0 0 32px #ff770099, 0 0 60px #ff770044; }
+    button:active { transform: scale(0.97); }
+
+    .divider {
+      width: 200px; height: 1px;
+      background: linear-gradient(90deg, transparent, #ff7700aa, transparent);
+      position: relative; z-index: 1;
+    }
 
     .hint {
-      opacity: 0.5;
-      font-size: 0.78rem;
-      text-align: center;
-      line-height: 1.8;
+      font-size: 0.8rem; letter-spacing: 0.06em; line-height: 2;
+      color: #6a3050; text-align: center;
+      position: relative; z-index: 1;
     }
-    .score { font-size: 1.2rem; }
+    .hint em { color: #9a5070; font-style: normal; }
+
+    .flag-upload {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      position: relative; z-index: 1;
+    }
+    .flag-upload label {
+      font-size: 0.85rem; letter-spacing: 0.12em; color: #9a5070; cursor: pointer;
+      animation: flagGlow 2.4s ease-in-out infinite;
+    }
+    .flag-upload label:hover { color: #ff7700; }
+    @keyframes flagGlow {
+      0%,100% { color: #9a5070; text-shadow: none; }
+      50%      { color: #ffcc88; text-shadow: 0 0 12px #ff7700, 0 0 24px #ff770066; }
+    }
+    #flag-preview {
+      width: 64px; height: 64px; object-fit: cover;
+      border: 1px solid #451830; border-radius: 4px;
+      display: none; image-rendering: pixelated;
+    }
+    #flag-input { display: none; }
+
+    .arrr-upload {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      position: relative; z-index: 1;
+    }
+    #arrr-btn {
+      padding: 8px 22px;
+      font-size: 0.9rem; font-family: inherit; letter-spacing: 0.15em;
+      border-radius: 6px; border: 1px solid #cc00ff;
+      background: #cc00ff18; color: #cc00ff; cursor: pointer;
+      text-shadow: 0 0 10px #cc00ff; box-shadow: 0 0 16px #cc00ff44;
+      transition: all 0.15s;
+    }
+    #arrr-btn.recording { border-color: #ff0044; color: #ff0044; text-shadow: 0 0 10px #ff0044; box-shadow: 0 0 20px #ff004466; animation: recPulse 0.5s ease-in-out infinite; }
+    #arrr-btn.done      { border-color: #00ff88; color: #00ff88; text-shadow: 0 0 10px #00ff88; }
+    @keyframes recPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    #arrr-status { font-size: 0.75rem; letter-spacing: 0.08em; color: #6a3050; }
+
+    .score {
+      font-size: 1.1rem; letter-spacing: 0.15em; color: #9a6878;
+      position: relative; z-index: 1;
+    }
+    .score strong { color: #ffcc00; text-shadow: 0 0 12px #ffcc00, 0 0 24px #ffcc0088; }
   </style>
 </head>
 <body>
 
+<!-- ── Intro ── -->
+<div id="intro">
+  <div id="intro-bg"></div>
+  <canvas id="intro-canvas"></canvas>
+</div>
+
+<!-- ── Login screen ── -->
 <div id="splash">
-  <h1>⚓ PIRATA</h1>
-  <input id="username" type="text" placeholder="Dein Kapitän-Name" maxlength="16" />
-  <select id="ship-select">
-    <option value="sloop">Schaluppe — schnell · 4 Kanonen</option>
-    <option value="brigantine">Brigantine — mittel · 8 Kanonen</option>
-    <option value="galleon">Galleone — schwer · 16 Kanonen</option>
-    <option value="manOWar">Linienschiff — massiv · 24 Kanonen</option>
-  </select>
-  <button id="join-btn">Leinen los!</button>
-  <p class="hint">
-    ↑ Beschleunigen &nbsp;·&nbsp; ↓ Bremsen &nbsp;·&nbsp; ← → Drehen (nur mit Fahrt)<br>
-    A = Backbord-Breitseite &nbsp;·&nbsp; D = Steuerbord-Breitseite<br>
-    Leertaste = Explosionsfass legen<br>
-    Versenkte Schiffe geben ihre Kanonen ab
-  </p>
+  <div class="card">
+    <h1>⚓ PIRATA</h1>
+    <div class="divider"></div>
+    <input id="username" type="text" placeholder="KAPITÄN-NAME" maxlength="16" style="width:100%" />
+    <div class="flag-upload">
+      <label for="flag-input">🏴 FLAGGE HOCHLADEN (optional)</label>
+      <input id="flag-input" type="file" accept="image/*" />
+      <img id="flag-preview" alt="flag preview" />
+    </div>
+    <div class="arrr-upload">
+      <button id="arrr-btn" type="button">🎤 ARRR AUFNEHMEN (3s, optional)</button>
+      <span id="arrr-status"></span>
+    </div>
+    <button id="join-btn" style="width:100%">⚓ LEINEN LOS</button>
+    <p class="hint">
+      <em>↑ ↓</em> Segel &nbsp;·&nbsp; <em>← →</em> Drehen &nbsp;·&nbsp; <em>A/D</em> Kanonen<br>
+      <em>Q</em> Spezial &nbsp;·&nbsp; <em>W</em> Burner &nbsp;·&nbsp; <em>Space</em> Mine &nbsp;·&nbsp; <em>B</em> Shop
+    </p>
+  </div>
 </div>
 
 <div id="death-screen">
-  <h2>Versenkt!</h2>
-  <p class="score">Kills: <strong id="death-kills">0</strong></p>
-  <select id="respawn-ship">
-    <option value="sloop">Schaluppe</option>
-    <option value="brigantine">Brigantine</option>
-    <option value="galleon">Galleone</option>
-    <option value="manOWar">Linienschiff</option>
-  </select>
-  <button id="respawn-btn">Nochmal!</button>
+  <div class="card" style="border-color:#ff008866;box-shadow:0 0 60px #ff008822,0 0 120px #ff00ff11">
+    <h2>✕ VERSENKT</h2>
+    <div class="divider" style="background:linear-gradient(90deg,transparent,#ff008888,transparent)"></div>
+    <p class="score">Kills: <strong id="death-kills">0</strong></p>
+    <button id="respawn-btn" style="width:100%;border-color:#ff0088;color:#ff0088;text-shadow:0 0 12px #ff0088;box-shadow:0 0 20px #ff008855">◉ NOCHMAL</button>
+  </div>
 </div>
 
 <canvas id="game" style="display:none"></canvas>
 
-<script type="module" src="game.js"></script>
+<script>
+  // ── Intro: 3s ship picture + sine-wave illumination ────────────
+  (function() {
+    const intro  = document.getElementById('intro');
+    const cv     = document.getElementById('intro-canvas');
+    const splash = document.getElementById('splash');
+    let raf;
+    const t0 = performance.now();
+    function resize() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+    // no canvas effects
+
+    // Female voice intro
+    function speakIntro() {
+      const u  = window.speechSynthesis;
+      const ut = new SpeechSynthesisUtterance('shipy shipy yo shipy yey, get in, comoooon');
+      ut.pitch = 1.6; ut.rate = 0.88; ut.volume = 1;
+      const trySpeak = () => {
+        const voices = u.getVoices();
+        const female = voices.find(v => /female|woman|girl|zira|samantha|victoria|karen|moira|fiona|tessa|sandy/i.test(v.name));
+        if (female) ut.voice = female;
+        u.speak(ut);
+      };
+      u.getVoices().length ? trySpeak() : (u.onvoiceschanged = trySpeak);
+    }
+    speakIntro();
+
+    setTimeout(() => {
+      cancelAnimationFrame(raf);
+      intro.classList.add('fade-out');
+      setTimeout(() => { intro.style.display = 'none'; splash.classList.add('visible'); }, 820);
+    }, 3000);
+  })();
+
+  // ── Default skull flag ──────────────────────────────────────────
+  (function() {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 288;
+    const ctx = c.getContext('2d');
+    // Black background
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, 512, 288);
+    // Skull emoji centered
+    ctx.font = '180px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('☠️', 256, 144);
+    window._skullFlagDataUrl = c.toDataURL('image/png');
+  })();
+
+  // ── Flag upload ─────────────────────────────────────────────────
+  window._flagDataUrl = null;
+  document.getElementById('flag-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 288;
+      const cx2 = c.getContext('2d');
+      cx2.imageSmoothingEnabled = true;
+      cx2.imageSmoothingQuality = 'high';
+      cx2.drawImage(img, 0, 0, 512, 288);
+      window._flagDataUrl = c.toDataURL('image/png');
+      const prev = document.getElementById('flag-preview');
+      prev.src = window._flagDataUrl;
+      prev.style.display = 'block';
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
+  // ── Arrr recorder ──────────────────────────────────────────────
+  window._arrrDataUrl = null;
+  (function() {
+    const btn    = document.getElementById('arrr-btn');
+    const status = document.getElementById('arrr-status');
+    let mediaRec = null, chunks = [];
+    btn.addEventListener('click', async () => {
+      if (mediaRec && mediaRec.state === 'recording') return;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mime   = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+        mediaRec = new MediaRecorder(stream, { mimeType: mime });
+        chunks   = [];
+        mediaRec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        mediaRec.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob   = new Blob(chunks, { type: mime });
+          const reader = new FileReader();
+          reader.onload = () => {
+            window._arrrDataUrl = reader.result;
+            btn.textContent = '✓ ARRR BEREIT';
+            btn.className   = 'done';
+            status.textContent = '';
+          };
+          reader.readAsDataURL(blob);
+        };
+        mediaRec.start();
+        btn.textContent = '● AUFNAHME...';
+        btn.className   = 'recording';
+        let t = 3;
+        status.textContent = `${t}s`;
+        const iv = setInterval(() => {
+          t--;
+          status.textContent = t > 0 ? `${t}s` : '';
+          if (t <= 0) { clearInterval(iv); mediaRec.stop(); }
+        }, 1000);
+      } catch(err) {
+        status.textContent = 'Mikrofon nicht verfügbar';
+      }
+    });
+  })();
+
+</script>
+<script type="module" src="game.js?v=35"></script>
 </body>
 </html>
